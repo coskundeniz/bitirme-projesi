@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+
+{% block title %} Student Page {% endblock %}
+
+{% block body %}
+
+    {% for item in config_data %}
+
+        {% if item["name"] == "Bitirme" %}
+            <a href="{{ url_for('users.start_workflow') }}" class="wf-start-link">{{ item["name"] }}</a>
+        {% else %}
+            <a href="{{ url_for('index') }}" class="wf-start-link">{{ item["name"] }}</a>
+        {% endif %}
+
+    {% endfor %}
+
+    <h2>Work in Progress</h2>
+
+    <div id="status-container">
+    <table>
+
+    {% if workflow %}
+
+        <tr><td><h3>Task</h3></td><td><h3>Status</h3></td><td><h3>Workflow</h3></td></tr>
+
+        {% for task in workflow.get_tasks(state=ready) %}
+
+            <tr>
+                {% if status.endswith("draft") %}
+                    <td><a href="{{ url_for('forms.show_pdf', filename='bitirme_istek_formu.pdf') }}" >{{ task.get_description() }}</a></td>
+                {% else %}
+                    <td>{{ task.get_description() }}</td>
+                {% endif %}
+
+                <td>{{ status }}</td>
+                <td>{{ workflow.spec.name }}</td>
+            </tr>
+
+        {% endfor %}
+
+    {% else %}
+        <tr>There is no active workflow</tr>
+
+    {% endif %}
+
+    </table>
+    </div>
+
+{% endblock %}

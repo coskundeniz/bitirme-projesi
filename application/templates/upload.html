@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% block title %} File Upload {% endblock %}
+
+{% block body %}
+
+    <h2>Upload File</h2>
+
+    <div>
+
+        <form action="{{ url_for('forms.upload') }}" method="POST" enctype="multipart/form-data">
+
+            {{form.hidden_tag()}}
+
+            {{form.file_field}}
+            <input type="submit" value="UPLOAD" class="submit-btn"/>
+        </form>
+
+    </div>
+
+    {% if form.file_field.errors %}
+        {% for error in form.file_field.errors %}
+            <p class="error"><strong>Error [{{form.file_field.label}}]: </strong>{{ error }}</p>
+        {% endfor %}
+    {% endif %}
+
+{% endblock %}

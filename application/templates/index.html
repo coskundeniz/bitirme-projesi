@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block title %} Home Page {% endblock %}
+
+{% block body %}
+
+    <div id="login-register-link">
+
+        <table align="center">
+            {% if not g.user.is_authenticated() %}
+                <tr>
+                    <td><a href="{{ url_for('users.login') }}" class="login">LOGIN</a></td>
+                </tr>
+
+                <tr>
+                    <td><a href="{{ url_for('users.register') }}" class="register">REGISTER</a></td>
+                </tr>
+            {% endif %}
+        </table>
+
+    </div>
+
+{% endblock %}

@@ -1,4 +1,4 @@
-bitirme-projesi
+Bitirme Projesi
 ===============
 
 İş Akışı Otomasyonu

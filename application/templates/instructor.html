@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% block title %} Instructor Page {% endblock %}
+
+{% block body %}
+
+    <h2>Work in Progress</h2>
+
+    <div id="status-container">
+    <table>
+
+    {% if workflow %}
+
+        {% if workflow.data["status"].endswith("waiting approval") %}
+            <tr>
+                <td><h3>Form</h3></td><td><h3>Status</h3></td><td><h3>Student</h3><td></td><td></td></td>
+            </tr>
+
+            <tr>
+                <td><a href="{{ url_for('forms.download', filename=form.name) }}" >{{ form.name }}</a></td>
+                <td>{{ workflow.data["status"] }}</td>
+                <td>{{ workflow.data["student"] }}</td>
+                <td><a href="{{ url_for('users.approve', username=workflow.data['student']) }}">APPROVE</a></td>
+                <td><a href="{{ url_for('users.reject') }}">REJECT</a></td>
+            </tr>
+
+        {% else %}
+            <tr>
+                <td><h3>Form</h3></td><td><h3>Status</h3></td><td><h3>Student</h3><td></td><td></td></td>
+            </tr>
+
+            <tr>
+                <td>{{ form.name }}</td>
+                <td>{{ workflow.data["status"] }}</td>
+                <td>{{ workflow.data["student"] }}</td>
+            </tr>
+
+        {% endif %}
+
+    {% else %}
+        <tr>There is no active workflow</tr>
+
+    {% endif %}
+
+    </table>
+    </div>
+
+{% endblock %}

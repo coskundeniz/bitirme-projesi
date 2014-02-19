@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<process-definition name="bitirme" revision="1.0">
+    
+    <description>Graduation Project</description>
+
+    <start-task>
+        <successor>send_request_form</successor>
+    </start-task>
+
+    <task name="send_request_form">
+        <description>Request Form</description>
+        <successor>approve_request_form</successor>
+    </task>
+
+    <task name="approve_request_form">
+        <description>Request Form</description>
+        <successor>end</successor>
+    </task>
+
+</process-definition>
