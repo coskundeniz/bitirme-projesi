@@ -3,6 +3,7 @@
 
     <workflow>
         <name>Bitirme</name>
+        <!--buraya hangi dosyada olduğu(project_spec.xml) yazılabilir-->
         <begin_form>bitirme_istek_formu.pdf</begin_form>
     </workflow>
 

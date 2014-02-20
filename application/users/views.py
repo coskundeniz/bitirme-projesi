@@ -146,6 +146,10 @@ def approve(username):
     db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
     workflow = get_workflow_instance("project_spec.xml", db_wf)
 
+    # complete approve_request_form task
+    approve_request_form_task = workflow.get_tasks(state=Task.READY)[0]
+    workflow.complete_task_from_id(approve_request_form_task.id)
+
     # update workflow status
     if(workflow.data["status"] == Status.RF_WA):
         workflow.data["status"] = next_status(current_status=workflow.data["status"],
