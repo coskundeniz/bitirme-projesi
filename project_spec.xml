@@ -1,21 +1,127 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<process-definition name="bitirme" revision="1.0">
+<process-definition name="Bitirme" revision="1.0">
 
     <description>Graduation Project</description>
 
     <start-task>
-        <successor>send_request_form</successor>
+        <description>Start Graduation Project Workflow</description>
+        <successor>send_rf</successor>
     </start-task>
 
-    <task name="send_request_form">
-        <description>Request Form</description>
-        <successor>approve_request_form</successor>
+    <!-- request form -->
+    <task name="send_rf">
+        <description>Send Request Form</description>
+
+        <data name="pdf_form" value="bitirme_istek_formu.pdf" />
+
+        <successor>rf_excl_choice</successor>
     </task>
 
-    <task name="approve_request_form">
-        <description>Request Form</description>
+    <exclusive-choice name="rf_excl_choice">
+        <description>Request form waiting for approval</description>
+        <post-assign name="rf_approved" value="False" />
+
+        <default-successor>approve_rf</default-successor>
+
+        <conditional-successor>
+            <equals left-field="rf_approved" right-value="False" />
+            <successor>reject_rf</successor>
+        </conditional-successor>
+    </exclusive-choice>
+
+    <task name="approve_rf">
+        <description>Approve request form</description>
+        <successor>send_pp</successor>
+    </task>
+
+    <task name="reject_rf">
+        <description>Reject request form</description>
+        <successor>send_rf</successor>
+    </task>
+
+    <!-- project plan -->
+    <task name="send_pp">
+        <description>Send Project Plan</description>
+        <successor>pp_excl_choice</successor>
+    </task>
+
+    <exclusive-choice name="pp_excl_choice">
+        <description>Project plan waiting for approval</description>
+        <post-assign name="pp_approved" value="False" />
+
+        <default-successor>approve_pp</default-successor>
+
+        <conditional-successor>
+            <equals left-field="pp_approved" right-value="False" />
+            <successor>reject_pp</successor>
+        </conditional-successor>
+    </exclusive-choice>
+
+    <task name="approve_pp">
+        <description>Approve project plan</description>
+        <successor>send_mr</successor>
+    </task>
+
+    <task name="reject_pp">
+        <description>Reject project plan</description>
+        <successor>send_pp</successor>
+    </task>
+
+    <!-- mid report -->
+    <task name="send_mr">
+        <description>Send Mid Report</description>
+        <successor>mr_excl_choice</successor>
+    </task>
+
+    <exclusive-choice name="mr_excl_choice">
+        <description>Mid report waiting for approval</description>
+        <post-assign name="mr_approved" value="False" />
+
+        <default-successor>approve_mr</default-successor>
+
+        <conditional-successor>
+            <equals left-field="mr_approved" right-value="False" />
+            <successor>reject_mr</successor>
+        </conditional-successor>
+    </exclusive-choice>
+
+    <task name="approve_mr">
+        <description>Approve mid report</description>
+        <successor>send_lr</successor>
+    </task>
+
+    <task name="reject_mr">
+        <description>Reject mid report</description>
+        <successor>send_mr</successor>
+    </task>
+
+    <!-- last report -->
+    <task name="send_lr">
+        <description>Send Final Report</description>
+        <successor>lr_excl_choice</successor>
+    </task>
+
+    <exclusive-choice name="lr_excl_choice">
+        <description>Final report waiting for approval</description>
+        <post-assign name="lr_approved" value="False" />
+
+        <default-successor>approve_lr</default-successor>
+
+        <conditional-successor>
+            <equals left-field="lr_approved" right-value="False" />
+            <successor>reject_lr</successor>
+        </conditional-successor>
+    </exclusive-choice>
+
+    <task name="approve_lr">
+        <description>Approve final report</description>
         <successor>end</successor>
+    </task>
+
+    <task name="reject_lr">
+        <description>Reject final report</description>
+        <successor>send_lr</successor>
     </task>
 
 </process-definition>
