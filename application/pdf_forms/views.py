@@ -10,8 +10,8 @@ from application.pdf_forms.forms import PdfUploadForm
 from application.pdf_forms.models import Pdf
 from application.users.models import User, Transaction
 from application.workflow.models import WorkflowState
-from application.utils import generate_fdf_file, generate_output_pdf, next_status
-from application.utils import get_workflow_instance
+from application.utils import generate_fdf_file, generate_output_pdf
+from application.utils import get_workflow_instance, get_from_config
 
 from SpiffWorkflow.storage.DictionarySerializer import DictionarySerializer
 from SpiffWorkflow import Task
@@ -71,19 +71,15 @@ def get_form_data():
     fdf_file = transaction_id + ".fdf"
     generate_fdf_file(str_fields, name_fields, fdf_file)
 
-    generate_output_pdf(transaction_id)
-
     # get workflow and complete send_request_form task
     db_wf = WorkflowState.query.filter_by(user_id=g.user.id).first()
-    workflow = get_workflow_instance("project_spec.xml", db_wf)
+    workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
 
     send_request_task = workflow.get_tasks(state=Task.READY)[0]
     workflow.complete_task_from_id(send_request_task.id)
     #workflow.task_tree.dump()
 
-    # update workflow status
-    workflow.data["status"] = next_status(current_status=workflow.data["status"],
-                                          action="submit_request_form")
+    generate_output_pdf(transaction_id, send_request_task)
 
     # update workflow on database
     serialized_wf = workflow.serialize(serializer=DictionarySerializer())

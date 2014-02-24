@@ -16,6 +16,10 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "users.login"
 
+# assign config data in wf_config.xml to read file once
+from application.utils import get_config_data
+config_data = get_config_data()
+
 # register blueprints on app
 from users.views import mod as user_bp
 app.register_blueprint(user_bp, url_prefix='/user')

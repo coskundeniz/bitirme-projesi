@@ -18,7 +18,7 @@ class User(UserMixin, db.Model):
     def __init__(self, username=None, password=None, role=ROLE_STUDENT):
         self.username = username
         self.password = password
-        self.role = role
+        self.role     = role
 
     def get_user(self, username=None):
         return self.query.filter_by(username=username).first()
@@ -46,8 +46,8 @@ class Transaction(db.Model):
 
     def __init__(self, transaction_id=None, datetime=None, workflow_id=None):
         self.transaction_id = transaction_id
-        self.datetime = datetime
-        self.workflow_id = workflow_id
+        self.datetime       = datetime
+        self.workflow_id    = workflow_id
 
     def add(self):
         db.session.add(self)

@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from application.app import app, db
-from application.workflow.models import ProjectSpec, WorkflowState
+from application.workflow.models import WorkflowState
 from application.users.models import User, Transaction
 from application.pdf_forms.models import Pdf
 from application.constants import ROLE_INSTRUCTOR, ROLE_ADMIN
+from application.utils import create_spec_from_xml
 
 from SpiffWorkflow import Workflow
 from SpiffWorkflow.storage.DictionarySerializer import DictionarySerializer
@@ -34,7 +35,7 @@ class DBTasks(object):
 
     def add_workflow(self):
 
-        workflow = Workflow(ProjectSpec())
+        workflow = Workflow(create_spec_from_xml("project_spec.xml"))
         serializer = DictionarySerializer()
         serialized_wf = workflow.serialize(serializer)
         self.workflow_id = str(uuid4())

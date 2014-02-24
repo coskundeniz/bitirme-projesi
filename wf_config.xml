@@ -3,13 +3,12 @@
 
     <workflow>
         <name>Bitirme</name>
-        <!--buraya hangi dosyada olduğu(project_spec.xml) yazılabilir-->
-        <begin_form>bitirme_istek_formu.pdf</begin_form>
+        <spec_file>project_spec.xml</spec_file>
     </workflow>
 
     <workflow>
         <name>Staj</name>
-        <begin_form>NO</begin_form>
+        <spec_file>nospec</spec_file>
     </workflow>
 
 </configuration>

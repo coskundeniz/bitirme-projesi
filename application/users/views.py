@@ -3,14 +3,16 @@
 from flask import Blueprint, render_template, url_for, redirect, g, flash
 from flask.ext.login import login_user, logout_user, login_required
 
-from application.app import login_manager
+from application.app import db, login_manager, config_data
 from application.users.models import User, Transaction
 from application.users.forms import LoginForm, RegistrationForm
 from application.constants import ROLE_STUDENT, ROLE_ADMIN, ROLE_INSTRUCTOR
 from application.workflow.models import WorkflowState
 from application.pdf_forms.models import Pdf
-from application.utils import get_config_data, create_spec_from_xml, next_status
-from application.utils import Status, save_workflow_instance, get_workflow_instance
+from application.utils import get_from_config, create_spec_from_xml
+from application.utils import save_workflow_instance, get_workflow_instance
+
+from SpiffWorkflow.storage.DictionarySerializer import DictionarySerializer
 from SpiffWorkflow import Workflow, Task
 
 
@@ -77,7 +79,8 @@ def user_page(username=None):
         db_wf_for_instructor = WorkflowState.query.filter_by(instructor_id=user.id).first()
 
         if db_wf_for_instructor:
-            workflow = get_workflow_instance("project_spec.xml", db_wf_for_instructor)
+            workflow = get_workflow_instance(get_from_config(db_wf_for_instructor.workflow_name,
+                                                            "spec_file"), db_wf_for_instructor)
 
             # get related transaction
             transaction = Transaction.query.filter_by(workflow_id=db_wf_for_instructor.workflow_id).first()
@@ -85,7 +88,10 @@ def user_page(username=None):
             # get output pdf
             output_pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
 
-            return render_template('instructor.html', workflow=workflow, form=output_pdf)
+            return render_template('instructor.html',
+                                    workflow=workflow,
+                                    form=output_pdf,
+                                    ready=Task.READY)
         else:
             return render_template('instructor.html', workflow=None)
 
@@ -93,38 +99,29 @@ def user_page(username=None):
         db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
 
         if db_wf:
-            workflow = get_workflow_instance("project_spec.xml", db_wf)
+            workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
 
             return render_template('user.html',
-                                    config_data=get_config_data(),
+                                    config_data=config_data,
                                     workflow=workflow,
                                     ready=Task.READY,
-                                    status=workflow.data["status"])
+                                    completed=Task.COMPLETED)
         else:
             return render_template('user.html',
-                                    config_data=get_config_data(),
-                                    workflow=None,
-                                    status="there is no task")
+                                    config_data=config_data,
+                                    workflow=None)
 
-@mod.route('/start')
+@mod.route('/start/<spec_file>')
 @login_required
-def start_workflow():
+def start_workflow(spec_file):
     """ start workflow for graduation project """
 
     # create workflow instance
-    #workflow = Workflow(ProjectSpec())
-    workflow = Workflow(create_spec_from_xml("project_spec.xml"))
+    workflow = Workflow(create_spec_from_xml(spec_file))
 
     # complete start task
     start_task = workflow.get_tasks(state=Task.READY)[0]
     workflow.complete_task_from_id(start_task.id)
-
-    # update workflow status as started
-    workflow.data["status"] = next_status(action="start")
-
-    # update workflow status as RF_DRAFT
-    workflow.data["status"] = next_status(current_status=workflow.data["status"],
-                                          action="request_form")
 
     # save username in workflow
     workflow.data["student"] = g.user.username
@@ -133,10 +130,10 @@ def start_workflow():
     save_workflow_instance(workflow, g.user.id)
 
     return render_template('user.html',
-                            config_data=get_config_data(),
+                            config_data=config_data,
                             workflow=workflow,
                             ready=Task.READY,
-                            status=workflow.data["status"])
+                            completed=Task.COMPLETED)
 
 @mod.route('/<username>/approve')
 @login_required
@@ -144,34 +141,29 @@ def approve(username):
 
     user = User.query.filter_by(username=username).first()
     db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
-    workflow = get_workflow_instance("project_spec.xml", db_wf)
+    workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
 
-    # complete approve_request_form task
-    approve_request_form_task = workflow.get_tasks(state=Task.READY)[0]
-    workflow.complete_task_from_id(approve_request_form_task.id)
+    # update pre-assign variable
+    workflow.get_tasks(state=Task.READY)[0].task_spec.post_assign[0].right = "True"
 
-    # update workflow status
-    if(workflow.data["status"] == Status.RF_WA):
-        workflow.data["status"] = next_status(current_status=workflow.data["status"],
-                                              action="approve_request_form")
-    elif(workflow.data["status"] == Status.PP_WA):
-        workflow.data["status"] = next_status(current_status=workflow.data["status"],
-                                              action="approve_project_plan")
-    elif(workflow.data["status"] == Status.MR_WA):
-        workflow.data["status"] = next_status(current_status=workflow.data["status"],
-                                              action="approve_mid_report")
-    elif(workflow.data["status"] == Status.LR_WA):
-        workflow.data["status"] = next_status(current_status=workflow.data["status"],
-                                              action="approve_last_report")
-    else:
-        pass
+    # complete *_excl_choice task
+    workflow.complete_next()
 
-    save_workflow_instance(workflow, user.id)
+    # complete approve_* task
+    workflow.complete_next()
+
+    # update workflow on database
+    serialized_wf = workflow.serialize(serializer=DictionarySerializer())
+    db_wf.workflow_instance = serialized_wf
+    db.session.commit()
 
     transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).first()
     pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
 
-    return render_template('instructor.html', workflow=workflow, form=pdf)
+    return render_template('instructor.html',
+                            workflow=workflow,
+                            form=pdf,
+                            ready=Task.READY)
 
 @mod.route('/reject')
 @login_required
