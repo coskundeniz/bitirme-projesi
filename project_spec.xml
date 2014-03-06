@@ -20,7 +20,7 @@
 
     <exclusive-choice name="rf_excl_choice">
         <description>Request form waiting for approval</description>
-        <post-assign name="rf_approved" value="False" />
+        <pre-assign name="rf_approved" value="True" />
 
         <default-successor>approve_rf</default-successor>
 
@@ -31,12 +31,12 @@
     </exclusive-choice>
 
     <task name="approve_rf">
-        <description>Approve request form</description>
+        <description>Request form was approved</description>
         <successor>send_pp</successor>
     </task>
 
     <task name="reject_rf">
-        <description>Reject request form</description>
+        <description>Request form was rejected</description>
         <successor>send_rf</successor>
     </task>
 
@@ -48,7 +48,7 @@
 
     <exclusive-choice name="pp_excl_choice">
         <description>Project plan waiting for approval</description>
-        <post-assign name="pp_approved" value="False" />
+        <pre-assign name="pp_approved" value="True" />
 
         <default-successor>approve_pp</default-successor>
 
@@ -59,12 +59,12 @@
     </exclusive-choice>
 
     <task name="approve_pp">
-        <description>Approve project plan</description>
+        <description>Project plan was approved</description>
         <successor>send_mr</successor>
     </task>
 
     <task name="reject_pp">
-        <description>Reject project plan</description>
+        <description>Project plan was rejected</description>
         <successor>send_pp</successor>
     </task>
 
@@ -76,7 +76,7 @@
 
     <exclusive-choice name="mr_excl_choice">
         <description>Mid report waiting for approval</description>
-        <post-assign name="mr_approved" value="False" />
+        <pre-assign name="mr_approved" value="True" />
 
         <default-successor>approve_mr</default-successor>
 
@@ -87,12 +87,12 @@
     </exclusive-choice>
 
     <task name="approve_mr">
-        <description>Approve mid report</description>
+        <description>Mid report was approved</description>
         <successor>send_lr</successor>
     </task>
 
     <task name="reject_mr">
-        <description>Reject mid report</description>
+        <description>Mid report was rejected</description>
         <successor>send_mr</successor>
     </task>
 
@@ -104,7 +104,7 @@
 
     <exclusive-choice name="lr_excl_choice">
         <description>Final report waiting for approval</description>
-        <post-assign name="lr_approved" value="False" />
+        <pre-assign name="lr_approved" value="True" />
 
         <default-successor>approve_lr</default-successor>
 
@@ -115,12 +115,12 @@
     </exclusive-choice>
 
     <task name="approve_lr">
-        <description>Approve final report</description>
+        <description>Final report was approved</description>
         <successor>end</successor>
     </task>
 
     <task name="reject_lr">
-        <description>Reject final report</description>
+        <description>Final report was rejected</description>
         <successor>send_lr</successor>
     </task>
 

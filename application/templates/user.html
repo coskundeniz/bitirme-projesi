@@ -4,7 +4,7 @@
 
 {% block body %}
 
-    {% for item in config_data %}
+    {% for item in content_data[0]["config_data"] %}
 
         <a href="{{ url_for('users.start_workflow', spec_file=item['spec_file']) }}"
            class="wf-start-link">{{ item["name"] }}</a>
@@ -16,24 +16,28 @@
     <div id="status-container">
     <table>
 
-    {% if workflow %}
+    {% if content_data[0].get("ready_tasks", None) %}
 
         <tr><td><h3>Task</h3></td><td><h3>Workflow</h3></td></tr>
 
-        {% for task in workflow.get_tasks(state=ready) %}
+        {% for item in content_data.itervalues() %}
 
-            <tr>
-                {% if task.task_spec.name.startswith("send") and task.get_spec_data("pdf_form") %}
-                    <td><a href="{{ url_for('forms.show_pdf', filename=task.get_spec_data('pdf_form')) }}" >
-                    {{ task.get_description() }}</a></td>
-                {% elif task.task_spec.name.startswith("send") %}
-                    <td><a href="{{ url_for('forms.upload') }}" >{{ task.get_description() }}</a></td> {# user için yazılanla değişmeli #}
-                {% else %}
-                    <td>{{ task.get_description() }}</td>
-                {% endif %}
+            {% for task in item["ready_tasks"] %}
 
-                <td>{{ workflow.spec.name }}</td>
-            </tr>
+                <tr>
+                    {% if task.get_name().startswith("send") and task.get_spec_data("pdf_form") %}
+                        <td><a href="{{ url_for('forms.show_pdf', filename=task.get_spec_data('pdf_form')) }}" >
+                        {{ task.get_description() }}</a></td>
+                    {% elif task.get_name().startswith("send") %}
+                        <td><a href="{{ url_for('forms.upload') }}" >{{ task.get_description() }}</a></td>
+                    {% else %}
+                        <td>{{ task.get_description() }}</td>
+                    {% endif %}
+
+                    <td>{{ task.workflow.spec.name }}</td>
+                </tr>
+
+            {% endfor %}
 
         {% endfor %}
 
@@ -50,18 +54,22 @@
     <div id="status-container">
     <table>
 
-    {% if workflow %}
+    {% if content_data[0].get("completed_tasks", None) %}
 
         <tr><td><h3>Task</h3></td><td><h3>Workflow</h3></td></tr>
 
-        {% for task in (workflow.get_tasks(state=completed))[::-1] %}
+        {% for item in content_data.itervalues() %}
 
-            {% if not task.task_spec.name == "Root" %}
-                <tr>
-                    <td>{{ task.get_description() }}</td>
-                    <td>{{ workflow.spec.name }}</td>
-                </tr>
-            {% endif %}
+            {% for task in item["completed_tasks"] %}
+
+                {% if not task.get_name() in ["Root", "End"] %}
+                    <tr>
+                        <td>{{ task.get_description() }}</td>
+                        <td>{{ task.workflow.spec.name }}</td>
+                    </tr>
+                {% endif %}
+
+            {% endfor %}
 
         {% endfor %}
 

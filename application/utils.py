@@ -7,10 +7,9 @@ from SpiffWorkflow.storage.DictionarySerializer import DictionarySerializer
 from SpiffWorkflow.storage import XmlSerializer
 from SpiffWorkflow import Workflow
 import xml.etree.ElementTree as ET
-from fdfgen import forge_fdf
 from subprocess import call
 from uuid import uuid4
-import os
+import os, re
 
 
 def get_config_data():
@@ -55,15 +54,10 @@ def create_spec_from_xml(filename=None):
 
     return wf_spec
 
-def generate_fdf_file(str_fields, name_fields, filename):
+def generate_fdf_file(fdf_string, filename):
 
-    fdf_string = forge_fdf("",
-                           fdf_data_strings=str_fields,
-                           fdf_data_names=name_fields)
-
-    fdf_file = open(os.path.join(app.config['UPLOAD_FOLDER'], filename), "w")
-    fdf_file.write(fdf_string)
-    fdf_file.close()
+    with open(os.path.join(app.config['UPLOAD_FOLDER'], filename), "w") as f:
+        f.write(fdf_string)
 
 def generate_output_pdf(transaction_id, current_task, flatten=False):
     """ merge fdf to pdf to create output pdf """
@@ -105,3 +99,26 @@ def get_workflow_instance(filename, db_wf):
     workflow = Workflow(create_spec_from_xml(filename)).deserialize(DictionarySerializer(),
                                                                     db_wf.workflow_instance)
     return workflow
+
+def get_form_fields(fdf_string):
+    """ returns form fields as dictionary """
+
+    pattern = re.compile(r'''
+                            <<          # beginning of string
+                            /T          # field name identifier
+                            \((\w+)\)   # field name
+                            /V          # field value identifier
+                            [\(|/]      # ( or / after value identifier
+                            (.+?)       # field value
+                            \)?         # 0 or 1 right parenthesis
+                            >>          # end of string
+                            ''', re.VERBOSE)
+
+    fields = pattern.findall(fdf_string)
+
+    form_fields = {}
+
+    for field_name, field_value in fields:
+        form_fields.update({field_name: field_value})
+
+    return form_fields

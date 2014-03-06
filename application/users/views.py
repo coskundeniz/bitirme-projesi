@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, url_for, redirect, g, flash
 from flask.ext.login import login_user, logout_user, login_required
 
-from application.app import db, login_manager, config_data
+from application.app import app, db, login_manager, config_data
 from application.users.models import User, Transaction
 from application.users.forms import LoginForm, RegistrationForm
 from application.constants import ROLE_STUDENT, ROLE_ADMIN, ROLE_INSTRUCTOR
@@ -14,6 +14,9 @@ from application.utils import save_workflow_instance, get_workflow_instance
 
 from SpiffWorkflow.storage.DictionarySerializer import DictionarySerializer
 from SpiffWorkflow import Workflow, Task
+from datetime import datetime
+from uuid import uuid4
+import os
 
 
 mod = Blueprint('users', __name__)
@@ -68,48 +71,80 @@ def register():
 
 @mod.route('/<username>')
 @login_required
-def user_page(username=None):
+def user_page(username):
 
     user = User.query.filter_by(username=username).first_or_404()
+    content_data = {}
 
     if user.role == ROLE_ADMIN:
         return render_template('admin.html')
 
     elif user.role == ROLE_INSTRUCTOR:
-        db_wf_for_instructor = WorkflowState.query.filter_by(instructor_id=user.id).first()
 
-        if db_wf_for_instructor:
-            workflow = get_workflow_instance(get_from_config(db_wf_for_instructor.workflow_name,
-                                                            "spec_file"), db_wf_for_instructor)
+        index = 0
+        # take all workflows related to instructor
+        all_workflows = WorkflowState.query.filter_by(instructor_id=user.id).all()
 
-            # get related transaction
-            transaction = Transaction.query.filter_by(workflow_id=db_wf_for_instructor.workflow_id).first()
+        if all_workflows:
+            for db_wf in all_workflows:
+                workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
 
-            # get output pdf
-            output_pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
+                if not workflow.is_completed():
 
-            return render_template('instructor.html',
-                                    workflow=workflow,
-                                    form=output_pdf,
-                                    ready=Task.READY)
+                    # get the last transaction for this workflow
+                    transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
+
+                    # get output pdf
+                    output_pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
+
+                    # fill content_data dictionary
+                    content_data[index] = {}
+                    content_data[index]["ready_tasks"] = workflow.get_tasks(Task.READY)
+                    content_data[index]["pdf"] = output_pdf
+                    if workflow.data.get("student", None):
+                        content_data[index]["student"] = workflow.data.get("student")
+
+                    index += 1
+
+                else:
+                    content_data[index] = {}
+
+            return render_template('instructor.html', content_data=content_data)
+
         else:
-            return render_template('instructor.html', workflow=None)
+            content_data[index] = {}
+            return render_template('instructor.html', content_data=content_data)
 
     else:
-        db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
+        index = 0
+        # take all workflows related to this student
+        all_workflows = WorkflowState.query.filter_by(user_id=user.id).all()
 
-        if db_wf:
-            workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
+        if all_workflows:
+            for db_wf in all_workflows:
+                workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
 
-            return render_template('user.html',
-                                    config_data=config_data,
-                                    workflow=workflow,
-                                    ready=Task.READY,
-                                    completed=Task.COMPLETED)
+                if not workflow.is_completed():
+                    # fill content_data dictionary
+                    content_data[index] = {}
+                    content_data[index]["config_data"] = config_data
+                    content_data[index]["ready_tasks"] = workflow.get_tasks(Task.READY)
+                    content_data[index]["completed_tasks"] = workflow.get_tasks(Task.COMPLETED)[::-1]
+                    if workflow.data.get("student", None):
+                        content_data["student"] = g.user.username
+
+                    index += 1
+
+                else:
+                    content_data[index] = {}
+                    content_data[index]["config_data"] = config_data
+
+            return render_template('user.html', content_data=content_data)
+
         else:
-            return render_template('user.html',
-                                    config_data=config_data,
-                                    workflow=None)
+            content_data[index] = {}
+            content_data[index]["config_data"] = config_data
+            return render_template('user.html', content_data=content_data)
 
 @mod.route('/start/<spec_file>')
 @login_required
@@ -129,11 +164,7 @@ def start_workflow(spec_file):
     # save workflow instance to database
     save_workflow_instance(workflow, g.user.id)
 
-    return render_template('user.html',
-                            config_data=config_data,
-                            workflow=workflow,
-                            ready=Task.READY,
-                            completed=Task.COMPLETED)
+    return redirect(url_for('.user_page', username=g.user.username))
 
 @mod.route('/<username>/approve')
 @login_required
@@ -143,13 +174,52 @@ def approve(username):
     db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
     workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
 
-    # update pre-assign variable
-    workflow.get_tasks(state=Task.READY)[0].task_spec.post_assign[0].right = "True"
-
     # complete *_excl_choice task
     workflow.complete_next()
 
     # complete approve_* task
+    workflow.complete_next()
+
+    # if last task reached, complete workflow
+    if workflow.get_tasks(state=Task.READY)[0].get_name() == "End":
+        workflow.complete_next()
+
+    # update workflow on database
+    serialized_wf = workflow.serialize(serializer=DictionarySerializer())
+    db_wf.workflow_instance = serialized_wf
+    db.session.commit()
+
+    # get last pdf sent
+    transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
+    pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
+
+    # create transaction and add
+    transaction_id = str(uuid4())
+    new_transaction = Transaction(transaction_id, datetime.now(), db_wf.workflow_id)
+    new_transaction.add()
+
+    # create pdf object for database and add
+    new_pdf = Pdf(str(uuid4()), pdf.name, app.config['UPLOAD_FOLDER'], transaction_id)
+    new_pdf.add()
+
+    return redirect(url_for('.user_page', username=g.user.username))
+
+@mod.route('/<username>/reject')
+@login_required
+def reject(username):
+
+    user = User.query.filter_by(username=username).first()
+    db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
+    workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
+
+    # update pre-assign variable to select reject branch
+    ready_task = workflow.get_tasks(state=Task.READY)[0]
+    ready_task.set_data(**{ready_task.task_spec.pre_assign[0].left_attribute: "False"})
+
+    # complete *_excl_choice task
+    workflow.complete_next()
+
+    # complete reject_* task
     workflow.complete_next()
 
     # update workflow on database
@@ -157,18 +227,41 @@ def approve(username):
     db_wf.workflow_instance = serialized_wf
     db.session.commit()
 
-    transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).first()
+    # delete rejected pdf from database and local folder
+    transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
     pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
 
-    return render_template('instructor.html',
-                            workflow=workflow,
-                            form=pdf,
-                            ready=Task.READY)
+    # delete both pdf and fdf files
+    os.system("rm %s %s" % (os.path.join(pdf.path, pdf.name),
+                            os.path.join(pdf.path, pdf.name.replace("pdf", "fdf"))))
+    pdf.delete()
 
-@mod.route('/reject')
+    return redirect(url_for('.user_page', username=g.user.username))
+
+@mod.route('/send_pdf/<filename>')
 @login_required
-def reject():
-    return redirect(url_for('index'))
+def send_pdf(filename):
+
+    user = User.query.filter_by(username=g.user.username).first()
+    db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
+    workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
+
+    workflow.complete_next()
+
+    serialized_wf = workflow.serialize(serializer=DictionarySerializer())
+    db_wf.workflow_instance = serialized_wf
+    db.session.commit()
+
+    # create transaction and add
+    transaction_id = str(uuid4())
+    transaction = Transaction(transaction_id, datetime.now(), db_wf.workflow_id)
+    transaction.add()
+
+    # create pdf object for database and add
+    output_pdf = Pdf(str(uuid4()), filename, app.config['UPLOAD_FOLDER'], transaction_id)
+    output_pdf.add()
+
+    return redirect(url_for('.user_page', username=g.user.username))
 
 @mod.route('/logout')
 @login_required

@@ -9,28 +9,33 @@
     <div id="status-container">
     <table>
 
-    {% if workflow %}
+    {% if content_data[0].get("ready_tasks", None) %}
 
-        {% if workflow.get_tasks(state=ready)[0].get_description().endswith("approval") %}
+        {% if content_data[0]["ready_tasks"][0].get_description().endswith("approval") %}
             <tr><td><h3>Task</h3></td><td><h3>Student</h3></td><td><h3>Workflow</h3></td><td></td><td></td></tr>
         {% endif %}
 
-        {% for task in workflow.get_tasks(state=ready) %}
+        {% for item in content_data.itervalues() %}
 
-            {% if task.get_description().endswith("approval") or task.get_description().endswith("assign") %}
+            {% for task in item["ready_tasks"] %}
 
-                <tr>
-                    <td><a href="{{ url_for('forms.download', filename=form.name) }}" >{{ task.get_description() }}</a></td>
-                    <td>{{ workflow.data["student"] }}</td>
-                    <td>{{ workflow.spec.name }}</td>
-                    <td><a href="{{ url_for('users.approve', username=workflow.data['student']) }}">APPROVE</a></td>
-                    <td><a href="{{ url_for('users.reject') }}">REJECT</a></td>
-                </tr>
+                {% if task.get_description().endswith("approval") %}
 
-            {% else %}
-                <tr>There is no waiting task</tr>
+                    <tr>
+                        <td><a href="{{ url_for('forms.download', filename=item["pdf"].name) }}">
+                            {{ task.get_description() }}</a></td>
+                        <td>{{ item["student"] }}</td>
+                        <td>{{ task.workflow.spec.name }}</td>
+                        <td><a href="{{ url_for('users.approve', username=item["student"]) }}">APPROVE</a></td>
+                        <td><a href="{{ url_for('users.reject', username=item["student"]) }}">REJECT</a></td>
+                    </tr>
 
-            {% endif %}
+                {% else %}
+                    <tr>There is no waiting task</tr>
+
+                {% endif %}
+
+            {% endfor %}
 
         {% endfor %}
 
