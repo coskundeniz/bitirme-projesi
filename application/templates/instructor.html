@@ -11,31 +11,31 @@
 
     {% if content_data[0].get("ready_tasks", None) %}
 
-        {% if content_data[0]["ready_tasks"][0].get_description().endswith("approval") %}
+        {% if content_data[0]["ready_tasks"].get_description().endswith("approval") %}
             <tr><td><h3>Task</h3></td><td><h3>Student</h3></td><td><h3>Workflow</h3></td><td></td><td></td></tr>
         {% endif %}
 
         {% for item in content_data.itervalues() %}
 
-            {% for task in item["ready_tasks"] %}
+        {# {% for task in item["ready_tasks"] %} #}
 
-                {% if task.get_description().endswith("approval") %}
+            {% if item["ready_tasks"].get_description().endswith("approval") %}
 
-                    <tr>
-                        <td><a href="{{ url_for('forms.download', filename=item["pdf"].name) }}">
-                            {{ task.get_description() }}</a></td>
-                        <td>{{ item["student"] }}</td>
-                        <td>{{ task.workflow.spec.name }}</td>
-                        <td><a href="{{ url_for('users.approve', username=item["student"]) }}">APPROVE</a></td>
-                        <td><a href="{{ url_for('users.reject', username=item["student"]) }}">REJECT</a></td>
-                    </tr>
+                <tr>
+                    <td><a href="{{ url_for('forms.download', filename=item["pdf"].name) }}">
+                        {{ item["ready_tasks"].get_description() }}</a></td>
+                    <td>{{ item["student"] }}</td>
+                    <td>{{ item["ready_tasks"].workflow.spec.name }}</td>
+                    <td><a href="{{ url_for('users.approve', username=item["student"]) }}">APPROVE</a></td>
+                    <td><a href="{{ url_for('users.reject', username=item["student"]) }}">REJECT</a></td>
+                </tr>
 
-                {% else %}
-                    <tr>There is no waiting task</tr>
+            {% else %}
+                <tr>There is no waiting task</tr>
 
-                {% endif %}
+            {% endif %}
 
-            {% endfor %}
+            {#{% endfor %} #}
 
         {% endfor %}
 

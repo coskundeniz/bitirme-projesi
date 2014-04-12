@@ -22,22 +22,22 @@
 
         {% for item in content_data.itervalues() %}
 
-            {% for task in item["ready_tasks"] %}
+        {#    {% for task in item["ready_tasks"] %} #}
 
-                <tr>
-                    {% if task.get_name().startswith("send") and task.get_spec_data("pdf_form") %}
-                        <td><a href="{{ url_for('forms.show_pdf', filename=task.get_spec_data('pdf_form')) }}" >
-                        {{ task.get_description() }}</a></td>
-                    {% elif task.get_name().startswith("send") %}
-                        <td><a href="{{ url_for('forms.upload') }}" >{{ task.get_description() }}</a></td>
-                    {% else %}
-                        <td>{{ task.get_description() }}</td>
-                    {% endif %}
+            <tr>
+                {% if item["ready_tasks"].get_name().startswith("send") and item["ready_tasks"].get_spec_data('pdf_form') %}
+                    <td><a href="{{ url_for('forms.show_pdf', filename=item["ready_tasks"].get_spec_data('pdf_form')) }}" >
+                    {{ item["ready_tasks"].get_description() }}</a></td>
+                {% elif item["ready_tasks"].get_name().startswith("send") %}
+                    <td><a href="{{ url_for('forms.upload') }}" >{{ item["ready_tasks"].get_description() }}</a></td>
+                {% else %}
+                    <td>{{ item["ready_tasks"].get_description() }}</td>
+                {% endif %}
 
-                    <td>{{ task.workflow.spec.name }}</td>
-                </tr>
+                <td>{{ item["ready_tasks"].workflow.spec.name }}</td>
+            </tr>
 
-            {% endfor %}
+        {#{% endfor %} #}
 
         {% endfor %}
 
@@ -62,7 +62,7 @@
 
             {% for task in item["completed_tasks"] %}
 
-                {% if not task.get_name() in ["Root", "End"] %}
+                {% if not (task.get_name() in ["Root", "End"] or task.get_name().endswith("multi_instance")) %}
                     <tr>
                         <td>{{ task.get_description() }}</td>
                         <td>{{ task.workflow.spec.name }}</td>

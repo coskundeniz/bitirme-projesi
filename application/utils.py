@@ -42,7 +42,7 @@ def get_from_config(workflow_name, field_name):
         if item["name"] == workflow_name:
             return item.get(field_name, None)
 
-def create_spec_from_xml(filename=None):
+def create_spec_from_xml(filename):
     """ create workflow spec from given xml file """
 
     serializer = XmlSerializer()

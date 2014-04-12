@@ -99,7 +99,7 @@ def user_page(username):
 
                     # fill content_data dictionary
                     content_data[index] = {}
-                    content_data[index]["ready_tasks"] = workflow.get_tasks(Task.READY)
+                    content_data[index]["ready_tasks"] = workflow.get_tasks(Task.READY)[0]
                     content_data[index]["pdf"] = output_pdf
                     if workflow.data.get("student", None):
                         content_data[index]["student"] = workflow.data.get("student")
@@ -128,10 +128,8 @@ def user_page(username):
                     # fill content_data dictionary
                     content_data[index] = {}
                     content_data[index]["config_data"] = config_data
-                    content_data[index]["ready_tasks"] = workflow.get_tasks(Task.READY)
+                    content_data[index]["ready_tasks"] = workflow.get_tasks(Task.READY)[0]
                     content_data[index]["completed_tasks"] = workflow.get_tasks(Task.COMPLETED)[::-1]
-                    if workflow.data.get("student", None):
-                        content_data["student"] = g.user.username
 
                     index += 1
 
@@ -174,11 +172,43 @@ def approve(username):
     db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
     workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
 
-    # complete *_excl_choice task
-    workflow.complete_next()
+    # if first workflow is running, complete xor task
+    if workflow.spec.name == "Bitirme":
+        workflow.complete_next()
 
-    # complete approve_* task
-    workflow.complete_next()
+    # complete *_multi_instance tasks if not completed
+    for task in workflow.get_tasks(state=Task.READY):
+        if task.get_name().endswith("multi_instance"):
+            workflow.complete_task_from_id(task.id)
+
+    # get ready approve tasks and complete one of them
+    ready_approve_tasks = [task for task in workflow.get_tasks(state=Task.READY)
+                                 if task.get_name().startswith("approve")]
+    if ready_approve_tasks:
+        workflow.complete_task_from_id(ready_approve_tasks[0].id)
+
+    # complete approve join task
+    if workflow.get_tasks(state=Task.READY)[0].get_name().endswith("join"):
+        workflow.complete_next()
+
+        # cancel remaining reject tasks
+        reject_tasks = [task for task in workflow.get_tasks(state=Task.READY)
+                              if task.get_name().startswith("reject")]
+        for task in reject_tasks:
+            task.cancel()
+
+        # get last pdf sent
+        transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
+        pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
+
+        # create transaction and add
+        transaction_id = str(uuid4())
+        new_transaction = Transaction(transaction_id, datetime.now(), db_wf.workflow_id)
+        new_transaction.add()
+
+        # create pdf object for database and add
+        new_pdf = Pdf(str(uuid4()), pdf.name, app.config['UPLOAD_FOLDER'], transaction_id)
+        new_pdf.add()
 
     # if last task reached, complete workflow
     if workflow.get_tasks(state=Task.READY)[0].get_name() == "End":
@@ -189,18 +219,19 @@ def approve(username):
     db_wf.workflow_instance = serialized_wf
     db.session.commit()
 
-    # get last pdf sent
-    transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
-    pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
+    if workflow.spec.name == "Bitirme":
+        #get last pdf sent
+        transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
+        pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
 
-    # create transaction and add
-    transaction_id = str(uuid4())
-    new_transaction = Transaction(transaction_id, datetime.now(), db_wf.workflow_id)
-    new_transaction.add()
+        # create transaction and add
+        transaction_id = str(uuid4())
+        new_transaction = Transaction(transaction_id, datetime.now(), db_wf.workflow_id)
+        new_transaction.add()
 
-    # create pdf object for database and add
-    new_pdf = Pdf(str(uuid4()), pdf.name, app.config['UPLOAD_FOLDER'], transaction_id)
-    new_pdf.add()
+        # create pdf object for database and add
+        new_pdf = Pdf(str(uuid4()), pdf.name, app.config['UPLOAD_FOLDER'], transaction_id)
+        new_pdf.add()
 
     return redirect(url_for('.user_page', username=g.user.username))
 
@@ -212,29 +243,66 @@ def reject(username):
     db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
     workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
 
-    # update pre-assign variable to select reject branch
-    ready_task = workflow.get_tasks(state=Task.READY)[0]
-    ready_task.set_data(**{ready_task.task_spec.pre_assign[0].left_attribute: "False"})
+    # if first workflow is running, update *_approved variable and complete xor task
+    if workflow.spec.name == "Bitirme":
+        ready_task = workflow.get_tasks(state=Task.READY)[0]
+        ready_task.set_data(**{ready_task.task_spec.pre_assign[0].left_attribute: "False"})
+        workflow.complete_next()
 
-    # complete *_excl_choice task
-    workflow.complete_next()
+    # complete *_multi_instance tasks if not completed
+    for task in workflow.get_tasks(state=Task.READY):
+        if task.get_name().endswith("multi_instance"):
+            workflow.complete_task_from_id(task.id)
 
-    # complete reject_* task
-    workflow.complete_next()
+    # get ready reject tasks and complete one of them
+    ready_reject_tasks = [task for task in workflow.get_tasks(state=Task.READY)
+                                if task.get_name().startswith("reject")]
+    if ready_reject_tasks:
+        workflow.complete_task_from_id(ready_reject_tasks[0].id)
+
+    # complete reject join task
+    for task in workflow.get_tasks(state=Task.READY):
+        if task.get_name().endswith("join"):
+            workflow.complete_task_from_id(task.id)
+
+            # cancel remaining approve tasks
+            approve_tasks = [ready_task for ready_task in workflow.get_tasks(state=Task.READY)
+                                         if ready_task.get_name().startswith("approve")]
+            for approve_task in approve_tasks:
+                approve_task.cancel()
+
+            # set *_rejected variable as True
+            reject_xor = workflow.get_tasks(state=Task.READY)[0]
+            reject_xor.set_data(**{reject_xor.task_spec.pre_assign[0].left_attribute: "True"})
+            workflow.complete_task_from_id(reject_xor.id)
+
+            # if reject_join completed, delete rejected pdf from database and local folder
+            transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
+            pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
+
+            ## delete both pdf and fdf files
+            os.remove("%s" % os.path.join(pdf.path, pdf.name))
+            if os.path.exists(os.path.join(pdf.path, pdf.name.replace("pdf", "fdf"))):
+                os.remove("%s" % os.path.join(pdf.path, pdf.name.replace("pdf", "fdf")))
+            pdf.delete()
+
+    workflow.dump()
 
     # update workflow on database
     serialized_wf = workflow.serialize(serializer=DictionarySerializer())
     db_wf.workflow_instance = serialized_wf
     db.session.commit()
 
-    # delete rejected pdf from database and local folder
-    transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
-    pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
+    if workflow.spec.name == "Bitirme":
+        #if reject_join completed, delete rejected pdf from database and local folder
+        transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
+        pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
 
-    # delete both pdf and fdf files
-    os.system("rm %s %s" % (os.path.join(pdf.path, pdf.name),
-                            os.path.join(pdf.path, pdf.name.replace("pdf", "fdf"))))
-    pdf.delete()
+        # delete both pdf and fdf files
+        os.remove("%s" % os.path.join(pdf.path, pdf.name))
+        if os.path.exists(os.path.join(pdf.path, pdf.name.replace("pdf", "fdf"))):
+            os.remove("%s" % os.path.join(pdf.path, pdf.name.replace("pdf", "fdf")))
+        pdf.delete()
 
     return redirect(url_for('.user_page', username=g.user.username))
 

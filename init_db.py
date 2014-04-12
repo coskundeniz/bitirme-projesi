@@ -29,6 +29,12 @@ class DBTasks(object):
         self.instructor = User("instructor", "i#ins", role=ROLE_INSTRUCTOR)
         self.instructor.add()
 
+        self.ins2 = User("ins2", "i#ins", role=ROLE_INSTRUCTOR)
+        self.ins2.add()
+
+        self.ins3 = User("ins3", "i#ins", role=ROLE_INSTRUCTOR)
+        self.ins3.add()
+
         # add an admin
         self.admin = User("admin", "a#admin", role=ROLE_ADMIN)
         self.admin.add()

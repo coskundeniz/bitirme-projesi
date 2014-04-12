@@ -7,6 +7,11 @@
     </workflow>
 
     <workflow>
+        <name>Bitirme2</name>
+        <spec_file>project_spec2.xml</spec_file>
+    </workflow>
+
+    <workflow>
         <name>Staj</name>
         <spec_file>nospec</spec_file>
     </workflow>
