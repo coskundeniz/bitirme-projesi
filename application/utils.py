@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from application.workflow.models import WorkflowState
+from application.workflow.models import WorkflowState, UserWorkflow
 from application.app import app
 
 from SpiffWorkflow.storage.DictionarySerializer import DictionarySerializer
@@ -85,20 +85,33 @@ def generate_output_pdf(transaction_id, current_task, flatten=False):
             output_file])
 
 def save_workflow_instance(workflow, user_id=None, instructor_id=None):
+    """ creates a workflow for database and saves on it """
 
     serialized_wf = workflow.serialize(serializer=DictionarySerializer())
-    stored_wf = WorkflowState(workflow_id=str(uuid4()),
+    wf_id = str(uuid4())
+    stored_wf = WorkflowState(workflow_id=wf_id,
                               workflow_name=workflow.spec.name,
-                              workflow_instance=serialized_wf,
-                              user_id=user_id,
-                              instructor_id=instructor_id)
+                              workflow_instance=serialized_wf)
     stored_wf.add()
 
-def get_workflow_instance(filename, db_wf):
+    # save also user_id - workflow_id to userworkflow table
+    userwf = UserWorkflow(user_id=user_id, workflow_id=wf_id)
+    userwf.add()
 
-    workflow = Workflow(create_spec_from_xml(filename)).deserialize(DictionarySerializer(),
-                                                                    db_wf.workflow_instance)
+def get_workflow_instance(db_wf):
+
+    from application.app import workflow_specs
+
+    workflow = Workflow(workflow_specs[db_wf.workflow_name]).deserialize(DictionarySerializer(),
+                                                                         db_wf.workflow_instance)
     return workflow
+
+def get_last_workflow_id(user_id):
+    """ returns id of last workflow belongs to given user """
+
+    last_workflow = UserWorkflow.query.filter_by(user_id=user_id).all()[-1]
+
+    return last_workflow.workflow_id
 
 def get_form_fields(fdf_string):
     """ returns form fields as dictionary """
@@ -122,3 +135,12 @@ def get_form_fields(fdf_string):
         form_fields.update({field_name: field_value})
 
     return form_fields
+
+def get_all_specs():
+    """ returns a dictionary consists of workflow name - spec pairs """
+
+    from application.app import config_data
+
+    return {wf_config["name"]: create_spec_from_xml(wf_config["spec_file"])
+            for wf_config in config_data}
+

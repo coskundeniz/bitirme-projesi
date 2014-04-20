@@ -10,9 +10,10 @@ from application.constants import ROLE_STUDENT, ROLE_ADMIN
 from application.pdf_forms.forms import PdfUploadForm
 from application.pdf_forms.models import Pdf
 from application.users.models import User, Transaction
-from application.workflow.models import WorkflowState
+from application.workflow.models import WorkflowState, UserWorkflow
 from application.utils import generate_fdf_file, generate_output_pdf
-from application.utils import get_workflow_instance, get_from_config, get_form_fields
+from application.utils import get_workflow_instance, get_form_fields
+from application.utils import get_last_workflow_id
 
 from SpiffWorkflow.storage.DictionarySerializer import DictionarySerializer
 from SpiffWorkflow import Task
@@ -65,22 +66,27 @@ def get_form_data():
     generate_fdf_file(fdf_string, fdf_filename)
 
     # get workflow and complete ready task
-    db_wf = WorkflowState.query.filter_by(user_id=g.user.id).first()
-    workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
+    wf_id = get_last_workflow_id(g.user.id)
+    db_wf = WorkflowState.query.get(wf_id)
+    workflow = get_workflow_instance(db_wf)
 
     current_task = workflow.get_tasks(state=Task.READY)[0]
     generate_output_pdf(transaction_id, current_task, flatten=True)
 
     workflow.complete_next()
-    #workflow.task_tree.dump()
 
     # update workflow on database
     serialized_wf = workflow.serialize(serializer=DictionarySerializer())
     db_wf.workflow_instance = serialized_wf
 
-    if get_form_fields(fdf_string).get("str_instructor", None):
-        instructor = User.query.filter_by(username=get_form_fields(fdf_string)['str_instructor']).first()
-        db_wf.instructor_id = instructor.id
+    fields = get_form_fields(fdf_string)
+    for field_name, field_value in fields.iteritems():
+        if field_name.startswith("reviewer"):
+            instructor = User.query.filter_by(username=field_value).first()
+
+            # create entry in userworkflow table
+            user_wf = UserWorkflow(user_id=instructor.id, workflow_id=db_wf.workflow_id)
+            user_wf.add()
 
     db.session.commit()
 

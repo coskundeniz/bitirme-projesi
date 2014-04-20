@@ -20,6 +20,9 @@ login_manager.login_view = "users.login"
 from application.utils import get_config_data
 config_data = get_config_data()
 
+from application.utils import get_all_specs
+workflow_specs = get_all_specs()
+
 # register blueprints on app
 from users.views import mod as user_bp
 app.register_blueprint(user_bp, url_prefix='/user')

@@ -9,11 +9,10 @@
         <successor>send_rf</successor>
     </start-task>
 
-    <!-- request form -->
     <task name="send_rf">
         <description>Send Request Form</description>
 
-        <data name="pdf_form" value="bitirme_istek_formu.pdf" />
+        <data name="pdf_form" value="bitirme_istek_formu2.pdf" />
 
         <successor>rf_approve_multi_instance</successor>
         <successor>rf_reject_multi_instance</successor>

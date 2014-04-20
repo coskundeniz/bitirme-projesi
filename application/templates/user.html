@@ -6,7 +6,7 @@
 
     {% for item in content_data[0]["config_data"] %}
 
-        <a href="{{ url_for('users.start_workflow', spec_file=item['spec_file']) }}"
+        <a href="{{ url_for('users.start_workflow', workflow_name=item['name']) }}"
            class="wf-start-link">{{ item["name"] }}</a>
 
     {% endfor %}
@@ -16,33 +16,29 @@
     <div id="status-container">
     <table>
 
-    {% if content_data[0].get("ready_tasks", None) %}
+    {% if content_data[0].get("ready_task", None) %}
 
         <tr><td><h3>Task</h3></td><td><h3>Workflow</h3></td></tr>
 
         {% for item in content_data.itervalues() %}
 
-        {#    {% for task in item["ready_tasks"] %} #}
-
             <tr>
-                {% if item["ready_tasks"].get_name().startswith("send") and item["ready_tasks"].get_spec_data('pdf_form') %}
-                    <td><a href="{{ url_for('forms.show_pdf', filename=item["ready_tasks"].get_spec_data('pdf_form')) }}" >
-                    {{ item["ready_tasks"].get_description() }}</a></td>
-                {% elif item["ready_tasks"].get_name().startswith("send") %}
-                    <td><a href="{{ url_for('forms.upload') }}" >{{ item["ready_tasks"].get_description() }}</a></td>
+                {% if item["ready_task"].get_name().startswith("send") and item["ready_task"].get_spec_data('pdf_form') %}
+                    <td><a href="{{ url_for('forms.show_pdf', filename=item["ready_task"].get_spec_data('pdf_form')) }}" >
+                    {{ item["ready_task"].get_description() }}</a></td>
+                {% elif item["ready_task"].get_name().startswith("send") %}
+                    <td><a href="{{ url_for('forms.upload') }}" >{{ item["ready_task"].get_description() }}</a></td>
                 {% else %}
-                    <td>{{ item["ready_tasks"].get_description() }}</td>
+                    <td>{{ item["ready_task"].get_description() }}</td>
                 {% endif %}
 
-                <td>{{ item["ready_tasks"].workflow.spec.name }}</td>
+                <td>{{ item["ready_task"].workflow.spec.name }}</td>
             </tr>
-
-        {#{% endfor %} #}
 
         {% endfor %}
 
     {% else %}
-        <tr>There is no ongoing task</tr>
+        <tr>There is no active workflow</tr>
 
     {% endif %}
 
@@ -62,7 +58,12 @@
 
             {% for task in item["completed_tasks"] %}
 
-                {% if not (task.get_name() in ["Root", "End"] or task.get_name().endswith("multi_instance")) %}
+                {% if not (task.get_name() in ["Root", "End"] or
+                           task.get_name().endswith("multi_instance") or
+                           task.get_name().endswith("xor") or
+                           ((task.get_name().startswith("approve") or
+                             task.get_name().startswith("reject")) and
+                             task.workflow.spec.name == "Bitirme2")) %}
                     <tr>
                         <td>{{ task.get_description() }}</td>
                         <td>{{ task.workflow.spec.name }}</td>
@@ -74,7 +75,7 @@
         {% endfor %}
 
     {% else %}
-        <tr>There is no completed task</tr>
+        <tr>There is no completed task for an active workflow</tr>
 
     {% endif %}
 

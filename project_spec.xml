@@ -15,10 +15,10 @@
 
         <data name="pdf_form" value="bitirme_istek_formu.pdf" />
 
-        <successor>rf_excl_choice</successor>
+        <successor>rf_xor</successor>
     </task>
 
-    <exclusive-choice name="rf_excl_choice">
+    <exclusive-choice name="rf_xor">
         <description>Request form waiting for approval</description>
         <pre-assign name="rf_approved" value="True" />
 
@@ -43,10 +43,10 @@
     <!-- project plan -->
     <task name="send_pp">
         <description>Send Project Plan</description>
-        <successor>pp_excl_choice</successor>
+        <successor>pp_xor</successor>
     </task>
 
-    <exclusive-choice name="pp_excl_choice">
+    <exclusive-choice name="pp_xor">
         <description>Project plan waiting for approval</description>
         <pre-assign name="pp_approved" value="True" />
 
@@ -71,10 +71,10 @@
     <!-- mid report -->
     <task name="send_mr">
         <description>Send Mid Report</description>
-        <successor>mr_excl_choice</successor>
+        <successor>mr_xor</successor>
     </task>
 
-    <exclusive-choice name="mr_excl_choice">
+    <exclusive-choice name="mr_xor">
         <description>Mid report waiting for approval</description>
         <pre-assign name="mr_approved" value="True" />
 
@@ -99,10 +99,10 @@
     <!-- last report -->
     <task name="send_lr">
         <description>Send Final Report</description>
-        <successor>lr_excl_choice</successor>
+        <successor>lr_xor</successor>
     </task>
 
-    <exclusive-choice name="lr_excl_choice">
+    <exclusive-choice name="lr_xor">
         <description>Final report waiting for approval</description>
         <pre-assign name="lr_approved" value="True" />
 

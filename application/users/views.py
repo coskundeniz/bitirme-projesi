@@ -3,14 +3,14 @@
 from flask import Blueprint, render_template, url_for, redirect, g, flash
 from flask.ext.login import login_user, logout_user, login_required
 
-from application.app import app, db, login_manager, config_data
+from application.app import app, db, login_manager, config_data, workflow_specs
 from application.users.models import User, Transaction
 from application.users.forms import LoginForm, RegistrationForm
 from application.constants import ROLE_STUDENT, ROLE_ADMIN, ROLE_INSTRUCTOR
-from application.workflow.models import WorkflowState
+from application.workflow.models import WorkflowState, UserWorkflow
 from application.pdf_forms.models import Pdf
-from application.utils import get_from_config, create_spec_from_xml
 from application.utils import save_workflow_instance, get_workflow_instance
+from application.utils import get_last_workflow_id
 
 from SpiffWorkflow.storage.DictionarySerializer import DictionarySerializer
 from SpiffWorkflow import Workflow, Task
@@ -82,12 +82,14 @@ def user_page(username):
     elif user.role == ROLE_INSTRUCTOR:
 
         index = 0
-        # take all workflows related to instructor
-        all_workflows = WorkflowState.query.filter_by(instructor_id=user.id).all()
+        # get id of workflows that user has
+        wf_ids = [item.workflow_id for item in UserWorkflow.query.filter_by(user_id=user.id).all()]
+        # get all workflows with ids found above
+        all_workflows = [WorkflowState.query.get(wf_id) for wf_id in wf_ids]
 
         if all_workflows:
             for db_wf in all_workflows:
-                workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
+                workflow = get_workflow_instance(db_wf)
 
                 if not workflow.is_completed():
 
@@ -99,7 +101,7 @@ def user_page(username):
 
                     # fill content_data dictionary
                     content_data[index] = {}
-                    content_data[index]["ready_tasks"] = workflow.get_tasks(Task.READY)[0]
+                    content_data[index]["ready_task"] = workflow.get_tasks(Task.READY)[0]
                     content_data[index]["pdf"] = output_pdf
                     if workflow.data.get("student", None):
                         content_data[index]["student"] = workflow.data.get("student")
@@ -117,18 +119,20 @@ def user_page(username):
 
     else:
         index = 0
-        # take all workflows related to this student
-        all_workflows = WorkflowState.query.filter_by(user_id=user.id).all()
+        # get id of workflows that user has
+        wf_ids = [item.workflow_id for item in UserWorkflow.query.filter_by(user_id=user.id).all()]
+        # get all workflows with ids found above
+        all_workflows = [WorkflowState.query.get(wf_id) for wf_id in wf_ids]
 
         if all_workflows:
             for db_wf in all_workflows:
-                workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
+                workflow = get_workflow_instance(db_wf)
 
                 if not workflow.is_completed():
                     # fill content_data dictionary
                     content_data[index] = {}
                     content_data[index]["config_data"] = config_data
-                    content_data[index]["ready_tasks"] = workflow.get_tasks(Task.READY)[0]
+                    content_data[index]["ready_task"] = workflow.get_tasks(Task.READY)[0]
                     content_data[index]["completed_tasks"] = workflow.get_tasks(Task.COMPLETED)[::-1]
 
                     index += 1
@@ -144,13 +148,13 @@ def user_page(username):
             content_data[index]["config_data"] = config_data
             return render_template('user.html', content_data=content_data)
 
-@mod.route('/start/<spec_file>')
+@mod.route('/start/<workflow_name>')
 @login_required
-def start_workflow(spec_file):
+def start_workflow(workflow_name):
     """ start workflow for graduation project """
 
     # create workflow instance
-    workflow = Workflow(create_spec_from_xml(spec_file))
+    workflow = Workflow(workflow_specs[workflow_name])
 
     # complete start task
     start_task = workflow.get_tasks(state=Task.READY)[0]
@@ -169,8 +173,9 @@ def start_workflow(spec_file):
 def approve(username):
 
     user = User.query.filter_by(username=username).first()
-    db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
-    workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
+    wf_id = get_last_workflow_id(user.id)
+    db_wf = WorkflowState.query.get(wf_id)
+    workflow = get_workflow_instance(db_wf)
 
     # if first workflow is running, complete xor task
     if workflow.spec.name == "Bitirme":
@@ -181,10 +186,14 @@ def approve(username):
         if task.get_name().endswith("multi_instance"):
             workflow.complete_task_from_id(task.id)
 
-    # get ready approve tasks and complete one of them
+    # get ready approve tasks
     ready_approve_tasks = [task for task in workflow.get_tasks(state=Task.READY)
                                  if task.get_name().startswith("approve")]
     if ready_approve_tasks:
+        # store an information on workflow to not to show multiple approve
+        # tasks to instructor once it was approved or rejected
+        workflow.data[g.user.username] = ready_approve_tasks[0].get_name()
+        # complete an approve task
         workflow.complete_task_from_id(ready_approve_tasks[0].id)
 
     # complete approve join task
@@ -240,8 +249,9 @@ def approve(username):
 def reject(username):
 
     user = User.query.filter_by(username=username).first()
-    db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
-    workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
+    wf_id = get_last_workflow_id(user.id)
+    db_wf = WorkflowState.query.get(wf_id)
+    workflow = get_workflow_instance(db_wf)
 
     # if first workflow is running, update *_approved variable and complete xor task
     if workflow.spec.name == "Bitirme":
@@ -254,10 +264,14 @@ def reject(username):
         if task.get_name().endswith("multi_instance"):
             workflow.complete_task_from_id(task.id)
 
-    # get ready reject tasks and complete one of them
+    # get ready reject tasks
     ready_reject_tasks = [task for task in workflow.get_tasks(state=Task.READY)
                                 if task.get_name().startswith("reject")]
     if ready_reject_tasks:
+        # store an information on workflow not to show multiple approve
+        # tasks to instructor once it was approved or rejected
+        workflow.data[g.user.username] = ready_reject_tasks[0].get_name()
+        # complete a reject task
         workflow.complete_task_from_id(ready_reject_tasks[0].id)
 
     # complete reject join task
@@ -280,13 +294,11 @@ def reject(username):
             transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
             pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
 
-            ## delete both pdf and fdf files
+            # delete both pdf and fdf files
             os.remove("%s" % os.path.join(pdf.path, pdf.name))
             if os.path.exists(os.path.join(pdf.path, pdf.name.replace("pdf", "fdf"))):
                 os.remove("%s" % os.path.join(pdf.path, pdf.name.replace("pdf", "fdf")))
             pdf.delete()
-
-    workflow.dump()
 
     # update workflow on database
     serialized_wf = workflow.serialize(serializer=DictionarySerializer())
@@ -311,9 +323,11 @@ def reject(username):
 def send_pdf(filename):
 
     user = User.query.filter_by(username=g.user.username).first()
-    db_wf = WorkflowState.query.filter_by(user_id=user.id).first()
-    workflow = get_workflow_instance(get_from_config(db_wf.workflow_name, "spec_file"), db_wf)
+    wf_id = get_last_workflow_id(user.id)
+    db_wf = WorkflowState.query.get(wf_id)
+    workflow = get_workflow_instance(db_wf)
 
+    # complete send_* task
     workflow.complete_next()
 
     serialized_wf = workflow.serialize(serializer=DictionarySerializer())
