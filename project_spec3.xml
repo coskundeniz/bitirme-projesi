@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<process-definition name="Bitirme3" revision="1.0">
+
+    <description>Graduation Project</description>
+
+    <start-task>
+        <description>Start Graduation Project Workflow</description>
+        <successor>send_rf</successor>
+    </start-task>
+
+    <task name="send_rf">
+        <description>Send Request Form</description>
+
+        <data name="pdf_form" value="bitirme_istek_formu2.pdf" />
+
+        <successor>rf_xor</successor>
+    </task>
+
+    <exclusive-choice name="rf_xor">
+        <description>Request form waiting for approval</description>
+        <pre-assign name="rf_approved" value="True" />
+
+        <default-successor>approve_rf</default-successor>
+
+        <conditional-successor>
+            <equals left-field="rf_approved" right-value="False" />
+            <successor>reject_rf</successor>
+        </conditional-successor>
+    </exclusive-choice>
+
+    <task name="approve_rf">
+        <description>Request form was approved</description>
+        <successor>send_pp</successor>
+    </task>
+
+    <task name="reject_rf">
+        <description>Request form was rejected</description>
+        <successor>send_rf</successor>
+    </task>
+
+    <task name="send_pp">
+        <description>Send Project Plan</description>
+
+        <successor>pp_approve_multi_instance</successor>
+        <successor>pp_reject_multi_instance</successor>
+    </task>
+
+    <multi-instance name="pp_approve_multi_instance" times="3">
+        <description>Project plan waiting for approval</description>
+        <successor>approve_pp</successor>
+    </multi-instance>
+
+    <multi-instance name="pp_reject_multi_instance" times="3">
+        <description>Project plan waiting for approval</description>
+        <successor>reject_pp</successor>
+    </multi-instance>
+
+    <task name="approve_pp">
+        <description>Project plan waiting for approval</description>
+        <successor>pp_approve_join</successor>
+    </task>
+
+    <task name="reject_pp">
+        <description>Project plan waiting for approval</description>
+        <successor>pp_reject_join</successor>
+    </task>
+
+    <join name="pp_approve_join" context="pp_approve_multi_instance" threshold="2" cancel="True">
+        <description>Project plan was approved</description>
+        <successor>send_mr</successor>
+    </join>
+
+    <join name="pp_reject_join" context="pp_reject_multi_instance" threshold="2" cancel="True">
+        <description>Project plan was rejected</description>
+        <successor>pp_reject_xor</successor>
+    </join>
+
+    <exclusive-choice name="pp_reject_xor">
+        <pre-assign name="pp_rejected" value="False" />
+
+        <default-successor>end</default-successor>
+
+        <conditional-successor>
+            <equals left-field="pp_rejected" right-value="True" />
+            <successor>send_pp</successor>
+        </conditional-successor>
+    </exclusive-choice>
+
+    <task name="send_mr">
+        <description>Send Mid Report</description>
+        <successor>mr_xor</successor>
+    </task>
+
+    <exclusive-choice name="mr_xor">
+        <description>Mid report waiting for approval</description>
+        <pre-assign name="mr_approved" value="True" />
+
+        <default-successor>approve_mr</default-successor>
+
+        <conditional-successor>
+            <equals left-field="mr_approved" right-value="False" />
+            <successor>reject_mr</successor>
+        </conditional-successor>
+    </exclusive-choice>
+
+    <task name="approve_mr">
+        <description>Mid report was approved</description>
+        <successor>end</successor>
+    </task>
+
+    <task name="reject_mr">
+        <description>Mid report was rejected</description>
+        <successor>send_mr</successor>
+    </task>
+
+</process-definition>

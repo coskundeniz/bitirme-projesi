@@ -6,7 +6,7 @@ from flask.ext.login import login_required
 from werkzeug import secure_filename
 
 from application.app import app, db
-from application.constants import ROLE_STUDENT, ROLE_ADMIN
+from application.constants import ROLE_STUDENT, ROLE_ADMIN, ROLE_INSTRUCTOR
 from application.pdf_forms.forms import PdfUploadForm
 from application.pdf_forms.models import Pdf
 from application.users.models import User, Transaction
@@ -70,6 +70,12 @@ def get_form_data():
     db_wf = WorkflowState.query.get(wf_id)
     workflow = get_workflow_instance(db_wf)
 
+    for userwf in UserWorkflow.query.filter_by(workflow_id=wf_id).all():
+        user = User.query.get(userwf.user_id)
+        if user.role == ROLE_INSTRUCTOR:
+            # set user as not reviewed document
+            workflow.data[user.username] = False
+
     current_task = workflow.get_tasks(state=Task.READY)[0]
     generate_output_pdf(transaction_id, current_task, flatten=True)
 
@@ -83,6 +89,9 @@ def get_form_data():
     for field_name, field_value in fields.iteritems():
         if field_name.startswith("reviewer"):
             instructor = User.query.filter_by(username=field_value).first()
+
+            # set user as not reviewed document
+            workflow.data[instructor.username] = False
 
             # create entry in userworkflow table
             user_wf = UserWorkflow(user_id=instructor.id, workflow_id=db_wf.workflow_id)

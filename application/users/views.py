@@ -177,8 +177,8 @@ def approve(username):
     db_wf = WorkflowState.query.get(wf_id)
     workflow = get_workflow_instance(db_wf)
 
-    # if first workflow is running, complete xor task
-    if workflow.spec.name == "Bitirme":
+    # if ready task is *_xor task, complete
+    if workflow.get_tasks(state=Task.READY)[0].get_name().endswith("xor"):
         workflow.complete_next()
 
     # complete *_multi_instance tasks if not completed
@@ -192,7 +192,7 @@ def approve(username):
     if ready_approve_tasks:
         # store an information on workflow to not to show multiple approve
         # tasks to instructor once it was approved or rejected
-        workflow.data[g.user.username] = ready_approve_tasks[0].get_name()
+        workflow.data[g.user.username] = True
         # complete an approve task
         workflow.complete_task_from_id(ready_approve_tasks[0].id)
 
@@ -228,7 +228,8 @@ def approve(username):
     db_wf.workflow_instance = serialized_wf
     db.session.commit()
 
-    if workflow.spec.name == "Bitirme":
+    # check if current task is not a multi-instance task
+    if len(ready_approve_tasks) == 1:
         #get last pdf sent
         transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
         pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
@@ -253,8 +254,8 @@ def reject(username):
     db_wf = WorkflowState.query.get(wf_id)
     workflow = get_workflow_instance(db_wf)
 
-    # if first workflow is running, update *_approved variable and complete xor task
-    if workflow.spec.name == "Bitirme":
+    # if ready task is *_xor task, complete
+    if workflow.get_tasks(state=Task.READY)[0].get_name().endswith("xor"):
         ready_task = workflow.get_tasks(state=Task.READY)[0]
         ready_task.set_data(**{ready_task.task_spec.pre_assign[0].left_attribute: "False"})
         workflow.complete_next()
@@ -270,7 +271,7 @@ def reject(username):
     if ready_reject_tasks:
         # store an information on workflow not to show multiple approve
         # tasks to instructor once it was approved or rejected
-        workflow.data[g.user.username] = ready_reject_tasks[0].get_name()
+        workflow.data[g.user.username] = True
         # complete a reject task
         workflow.complete_task_from_id(ready_reject_tasks[0].id)
 
@@ -305,7 +306,8 @@ def reject(username):
     db_wf.workflow_instance = serialized_wf
     db.session.commit()
 
-    if workflow.spec.name == "Bitirme":
+    # check if current task is not a multi-instance task
+    if len(ready_reject_tasks) == 1:
         #if reject_join completed, delete rejected pdf from database and local folder
         transaction = Transaction.query.filter_by(workflow_id=db_wf.workflow_id).all()[-1]
         pdf = Pdf.query.filter_by(transaction_id=transaction.transaction_id).first()
@@ -326,6 +328,12 @@ def send_pdf(filename):
     wf_id = get_last_workflow_id(user.id)
     db_wf = WorkflowState.query.get(wf_id)
     workflow = get_workflow_instance(db_wf)
+
+    for userwf in UserWorkflow.query.filter_by(workflow_id=wf_id).all():
+        user = User.query.get(userwf.user_id)
+        if user.role == ROLE_INSTRUCTOR:
+            # set user as not reviewed document
+            workflow.data[user.username] = False
 
     # complete send_* task
     workflow.complete_next()

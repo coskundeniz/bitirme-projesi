@@ -12,8 +12,7 @@
     {% if content_data.values()[-1].get("ready_task", None) %}
 
         {% if content_data.values()[-1]["ready_task"].get_description().endswith("approval") and
-            not (content_data.values()[-1]["ready_task"].workflow.get_data(g.user.username)
-                 == content_data.values()[-1]["ready_task"].get_name()) %}
+            not content_data.values()[-1]["ready_task"].workflow.get_data(g.user.username) %}
 
             <tr><td><h3>Task</h3></td><td><h3>Student</h3></td><td><h3>Workflow</h3></td><td></td><td></td></tr>
 
@@ -22,7 +21,7 @@
         {% for item in content_data.itervalues() %}
 
             {% if item["ready_task"].get_description().endswith("approval") and
-                not (item["ready_task"].workflow.get_data(g.user.username) == item["ready_task"].get_name()) %}
+                not item["ready_task"].workflow.get_data(g.user.username) %}
 
                 <tr>
                     <td><a href="{{ url_for('forms.download', filename=item["pdf"].name) }}">

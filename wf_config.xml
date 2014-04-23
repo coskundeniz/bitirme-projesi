@@ -11,4 +11,9 @@
         <spec_file>project_spec2.xml</spec_file>
     </workflow>
 
+    <workflow>
+        <name>Bitirme3</name>
+        <spec_file>project_spec3.xml</spec_file>
+    </workflow>
+
 </configuration>
