@@ -97,6 +97,14 @@ def get_form_data():
             user_wf = UserWorkflow(user_id=instructor.id, workflow_id=db_wf.workflow_id)
             user_wf.add()
 
+    # check if there is a second student works on the same workflow
+    if fields.has_key("student2"):
+        # get user
+        user = User.query.filter_by(username=fields["student2"]).first()
+        # save user_id - workflow_id to userworkflow table
+        user_wf = UserWorkflow(user_id=user.id, workflow_id=wf_id)
+        user_wf.add()
+
     db.session.commit()
 
     # create transaction and add to database
