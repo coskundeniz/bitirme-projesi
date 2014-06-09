@@ -24,12 +24,12 @@
                 not item["ready_task"].workflow.get_data(g.user.username) %}
 
                 <tr>
-                    <td><a href="{{ url_for('forms.download', filename=item["pdf"].name) }}">
+                    <td><a href="{{ url_for('forms.download', filename=item["pdf"].name) }}" class="ready">
                         {{ item["ready_task"].get_description() }}</a></td>
                     <td>{{ item["student"] }}</td>
                     <td>{{ item["ready_task"].workflow.spec.name }}</td>
-                    <td><a href="{{ url_for('users.approve', username=item["student"]) }}">APPROVE</a></td>
-                    <td><a href="{{ url_for('users.reject', username=item["student"]) }}">REJECT</a></td>
+                    <td><a href="{{ url_for('users.approve', username=item["student"]) }}" class="approve-link">APPROVE</a></td>
+                    <td><a href="{{ url_for('users.reject', username=item["student"]) }}" class="reject-link">REJECT</a></td>
                 </tr>
 
             {% else %}

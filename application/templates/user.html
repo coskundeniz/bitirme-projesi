@@ -24,12 +24,12 @@
 
             <tr>
                 {% if item["ready_task"].get_name().startswith("send") and item["ready_task"].get_spec_data('pdf_form') %}
-                    <td><a href="{{ url_for('forms.show_pdf', filename=item["ready_task"].get_spec_data('pdf_form')) }}" >
+                <td><a href="{{ url_for('forms.show_pdf', filename=item["ready_task"].get_spec_data('pdf_form')) }}" class="ready">
                     {{ item["ready_task"].get_description() }}</a></td>
                 {% elif item["ready_task"].get_name().startswith("send") %}
-                    <td><a href="{{ url_for('forms.upload') }}" >{{ item["ready_task"].get_description() }}</a></td>
+                    <td><a href="{{ url_for('forms.upload') }}" class="ready">{{ item["ready_task"].get_description() }}</a></td>
                 {% else %}
-                    <td>{{ item["ready_task"].get_description() }}</td>
+                    <td class="waiting">{{ item["ready_task"].get_description() }}</td>
                 {% endif %}
 
                 <td>{{ item["ready_task"].workflow.spec.name }}</td>
